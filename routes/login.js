@@ -16,21 +16,42 @@ router.get('/', async (req, res) => {
     }
 });
 
-// Criar login
+// Inserir login
 router.post('/', async (req, res) => {
-    const { email_login, senha_login, id_user } = req.body;
+    const { id_user, email_login, senha_login } = req.body;
     let connection;
+
+    if (!id_user|| !email_login || !senha_login) {
+        return res.status(400).json({ error: 'Todos os campos são obrigatórios.' });
+    }
+
     try {
         connection = await oracledb.getConnection();
+
         const result = await connection.execute(
-                `INSERT INTO tb_login_users (email_login, senha_login, id_user) 
-                VALUES (:email_login, :senha_login, :id_user)`,
-                [email_login, senha_login, id_user],
-                { autoCommit: true }
+            `INSERT INTO tb_login_users (id_user, email_login, senha_login) 
+                VALUES (:id_user, :email_login, :senha_login) 
+                RETURNING id_login INTO :id_login`,
+            {
+                id_user,
+                email_login,
+                senha_login,
+                id_login: { type: oracledb.NUMBER, dir: oracledb.BIND_OUT },
+            },
+            { autoCommit: true }
         );
-        res.status(201).json({ id_login: result.lastRowid, email_login, id_user });
+
+        const id_login = result.outBinds.id_login[0];
+
+        res.status(201).json({
+            message: 'Login criado com sucesso!',
+            id_login,
+            id_user,
+            email_login,
+        });
     } catch (err) {
-        res.status(500).json({ error: 'Database error', details: err });
+        console.error('Erro ao inserir login:', err);
+        res.status(500).json({ error: 'Erro ao criar login', details: err });
     } finally {
         if (connection) await connection.close();
     }

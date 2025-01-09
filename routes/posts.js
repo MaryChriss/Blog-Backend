@@ -15,15 +15,15 @@ router.get('/', async (req, res) => {
         // Processar CLOBs
         const processedRows = await Promise.all(
             result.rows.map(async (row) => {
-                const bodyClob = row[3]; // Índice 3 corresponde ao campo BODY
+                const bodyClob = row[3]; 
                 const body = bodyClob ? await bodyClob.getData() : null;
 
                 return {
-                    id_post: row[0],  // ID_POST
-                    id_user: row[1],  // ID_USER
-                    titulo: row[2],   // TITULO
-                    body,             // BODY convertido de CLOB para string
-                    created_at: row[4] // CREATED_AT
+                    id_post: row[0],  
+                    id_user: row[1],  
+                    titulo: row[2],  
+                    body,             
+                    created_at: row[4] 
                 };
             })
         );
@@ -62,21 +62,40 @@ router.get('/', async (req, res) => {
 
     //Buscar Por id
     router.get('/:id', async (req, res) => {
-    const { id } = req.params;
-    let connection;
-    try {
-        connection = await oracledb.getConnection();
-        const result = await connection.execute(`SELECT * FROM tb_posts WHERE id_post = :id`, [id]);
-        if (result.rows.length === 0) {
-        return res.status(404).json({ error: 'Post não encontrado' });
+        const { id } = req.params;
+        let connection;
+        try {
+            connection = await oracledb.getConnection();
+            const result = await connection.execute(
+                `SELECT id_post, id_user, titulo, body, created_at FROM tb_posts WHERE id_post = :id`,
+                [id]
+            );
+    
+            if (result.rows.length === 0) {
+                return res.status(404).json({ error: 'Post não encontrado' });
+            }
+    
+            const row = result.rows[0];
+            const bodyClob = row[3]; 
+            const body = bodyClob ? await bodyClob.getData() : null;
+    
+            const post = {
+                id_post: row[0],  
+                id_user: row[1],  
+                titulo: row[2],   
+                body,             
+                created_at: row[4] 
+            };
+    
+            res.json(post);
+        } catch (err) {
+            console.error('Erro ao buscar post:', err);
+            res.status(500).json({ error: 'Database error', details: err });
+        } finally {
+            if (connection) await connection.close();
         }
-        res.json(result.rows[0]);
-    } catch (err) {
-        res.status(500).json({ error: 'Database error', details: err });
-    } finally {
-        if (connection) await connection.close();
-    }
     });
+    
 
     // Update
     router.put('/:id', async (req, res) => {
